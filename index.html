@@ -388,7 +388,7 @@ tbody tr:hover td { background:var(--teal-faint); }
     <div class="hero-card">
       <div class="badge">Program Gratis · Terbatas</div>
       <h1>Scaling Gigi<br>Tanpa Biaya</h1>
-      <p>Layanan scaling gigi gratis dalam rangka Hari Jadi Kota Semarang ke 479 untuk masyarakat umum. Kuota <strong>3 orang per hari</strong>, daftar sekarang sebelum penuh!</p>
+      <p>Layanan scaling gigi gratis untuk masyarakat wilayah Puskesmas Plamongansari. Kuota <strong>3 orang per hari</strong>, daftar sekarang sebelum penuh!</p>
       <div class="period">
         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         13 – 18 April 2026
@@ -589,7 +589,7 @@ tbody tr:hover td { background:var(--teal-faint); }
 //  CONSTANTS
 // ══════════════════════════════════
 const QUOTA    = 3;
-const PASS     = 'puskesmas2026';
+const PASS     = 'puskesmas2024';
 const PROGRAM_DATES = ['2026-04-13','2026-04-14','2026-04-15','2026-04-16','2026-04-17','2026-04-18'];
 const DAYS_ID  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const MONTHS_ID= ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -706,8 +706,8 @@ async function submitForm() {
   if (count >= QUOTA) { showToast('Kuota penuh! Silakan pilih tanggal lain.', true); renderDates(); return; }
 
   const nik = document.getElementById('f-nik').value.trim();
-  if (window._allData.find(r => r.nik === nik && r.tanggal === selectedDate)) {
-    showToast('NIK ini sudah terdaftar di tanggal yang sama.', true); return;
+  if (window._allData.find(r => r.nik === nik)) {
+    showToast('NIK ini sudah pernah mendaftar. 1 NIK hanya boleh daftar 1 kali.', true); return;
   }
 
   setLoading(true);
