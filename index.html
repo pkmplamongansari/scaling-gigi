@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pendaftaran Scaling Gigi – Puskesmas Plamongansari</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
 
 <!-- FIREBASE -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-  import { getDatabase, ref, push, onValue, remove, get }
+  import { getDatabase, ref, push, onValue, remove, get, set }
     from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
   const firebaseConfig = {
@@ -25,18 +25,43 @@
 
   const app = initializeApp(firebaseConfig);
   const db  = getDatabase(app);
-  const REG_REF = ref(db, 'registrations');
+  const REG_REF    = ref(db, 'registrations');
+  const CONFIG_REF = ref(db, 'config');
 
-  // Expose to global scope
-  window._db     = db;
-  window._ref    = ref;
-  window._push   = push;
-  window._onValue= onValue;
-  window._remove = remove;
-  window._get    = get;
-  window._REG_REF= REG_REF;
+  window._db         = db;
+  window._ref        = ref;
+  window._push       = push;
+  window._onValue    = onValue;
+  window._remove     = remove;
+  window._get        = get;
+  window._set        = set;
+  window._REG_REF    = REG_REF;
+  window._CONFIG_REF = CONFIG_REF;
+  window._allData    = [];
 
-  // Listen real-time
+  // Default config
+  window._config = {
+    judulKegiatan : 'Scaling Gigi Tanpa Biaya',
+    subjudulKegiatan: 'Layanan scaling gigi gratis dalam rangka Hari Jadi Kota Semarang ke-479 untuk masyarakat umum.',
+    periodeTeks   : '13 – 18 April 2026',
+    tanggalMulai  : '2026-04-13',
+    tanggalSelesai: '2026-04-18',
+    kuotaPerHari  : 3,
+    logoKemenkes  : '',
+    logoPuskesmas : '',
+    logoKota      : '',
+    namaPuskesmas : 'Puskesmas Plamongansari',
+    subnamaPuskesmas: 'Program Scaling Gigi Gratis 2026'
+  };
+
+  // Listen config
+  onValue(CONFIG_REF, snap => {
+    const raw = snap.val();
+    if (raw) window._config = { ...window._config, ...raw };
+    window.onConfigLoaded && window.onConfigLoaded();
+  });
+
+  // Listen registrations
   onValue(REG_REF, snap => {
     const raw = snap.val() || {};
     window._allData = Object.entries(raw).map(([k,v]) => ({...v, _key: k}));
@@ -74,16 +99,23 @@ nav {
   background: var(--white);
   border-bottom: 2px solid var(--teal-light);
   padding: 0 1.5rem;
-  height: 62px;
+  height: 64px;
   display: flex; align-items: center; gap: .9rem;
   position: sticky; top:0; z-index:100;
   box-shadow: var(--shadow-sm);
 }
-.nav-logo {
-  width:38px; height:38px; background:var(--teal);
+.nav-logos {
+  display: flex; align-items: center; gap: .6rem; flex-shrink: 0;
+}
+.nav-logo-img {
+  height: 40px; width: 40px; object-fit: contain; border-radius: 6px;
+}
+.nav-logo-placeholder {
+  width:40px; height:40px; background:var(--teal);
   border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
-.nav-logo svg { width:22px; height:22px; fill:white; }
+.nav-logo-placeholder svg { width:22px; height:22px; fill:white; }
+.nav-divider-v { width:1px; height:32px; background: var(--border); flex-shrink:0; }
 .nav-name  { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--teal-dark); line-height:1.2; }
 .nav-sub   { font-size:.7rem; color:var(--gray); }
 .nav-tabs  { margin-left:auto; display:flex; gap:.4rem; }
@@ -101,7 +133,6 @@ nav {
 /* ═══════════════ FORM PAGE ═══════════════ */
 .form-wrap { max-width:660px; margin:2.5rem auto; padding:0 1rem 3rem; }
 
-/* hero card */
 .hero-card {
   background:var(--white); border-radius:20px;
   border:2px solid var(--teal-light); padding:2rem 2.2rem 0;
@@ -136,7 +167,7 @@ nav {
   border-radius:14px; padding:.85rem 1.3rem; margin-bottom:1.25rem;
   box-shadow:var(--shadow-sm);
 }
-.q-dots { display:flex; gap:5px; }
+.q-dots { display:flex; gap:5px; flex-wrap:wrap; max-width:120px; }
 .q-dot {
   width:15px; height:15px; border-radius:50%; border:2px solid var(--border);
   transition:background .25s,border-color .25s;
@@ -155,17 +186,19 @@ nav {
 .field { margin-bottom:1.1rem; }
 label { display:block; font-size:.79rem; font-weight:600; margin-bottom:.35rem; letter-spacing:.01em; }
 label .req { color:var(--red); }
-input[type=text], input[type=tel], textarea {
+input[type=text], input[type=tel], input[type=number], input[type=date],
+input[type=password], input[type=url], textarea, select {
   width:100%; padding:.68rem 1rem; border:1.5px solid var(--border);
   border-radius:10px; font-family:'DM Sans',sans-serif; font-size:.9rem;
   color:var(--text); outline:none; transition:border-color .2s,box-shadow .2s;
   background:var(--white);
 }
-input:focus, textarea:focus {
+input:focus, textarea:focus, select:focus {
   border-color:var(--teal); box-shadow:0 0 0 3px rgba(13,148,136,.1);
 }
 textarea { resize:vertical; min-height:68px; }
 .row2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; }
 
 /* rahang toggle */
 .rahang-group { display:flex; gap:.75rem; margin-top:.35rem; }
@@ -182,18 +215,9 @@ textarea { resize:vertical; min-height:68px; }
 .rahang-btn.selected span { color:var(--teal-dark); }
 
 /* date grid */
-.cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:.65rem; }
-.cal-header span { font-weight:700; font-size:.9rem; color:var(--teal-dark); }
-.cal-nav-btn {
-  background:none; border:1.5px solid var(--border); border-radius:8px;
-  width:30px; height:30px; cursor:pointer; font-size:1rem; color:var(--teal);
-  display:flex; align-items:center; justify-content:center;
-}
-.cal-nav-btn:hover { background:var(--teal-light); }
-
 .date-row { display:flex; gap:.5rem; flex-wrap:wrap; }
 .date-chip {
-  flex:1; min-width:70px; border:1.5px solid var(--border); border-radius:12px;
+  flex:1; min-width:65px; border:1.5px solid var(--border); border-radius:12px;
   padding:.6rem .4rem; text-align:center; cursor:pointer;
   transition:all .18s; background:var(--white); position:relative;
 }
@@ -224,9 +248,10 @@ textarea { resize:vertical; min-height:68px; }
 /* loading overlay */
 .loading {
   position:fixed; inset:0; background:rgba(255,255,255,.7);
-  display:flex; align-items:center; justify-content:center;
-  z-index:999; backdrop-filter:blur(2px); display:none;
+  display:none; align-items:center; justify-content:center;
+  z-index:999; backdrop-filter:blur(2px);
 }
+.loading.show { display:flex; }
 .spinner {
   width:40px; height:40px; border:3px solid var(--teal-light);
   border-top-color:var(--teal); border-radius:50%;
@@ -262,11 +287,34 @@ textarea { resize:vertical; min-height:68px; }
 }
 .btn-back:hover { background:var(--teal-light); }
 
+/* print button */
+.btn-print {
+  background: var(--teal); color: white; border: none;
+  padding:.6rem 1.8rem; border-radius:10px; font-size:.88rem; font-weight:700;
+  cursor:pointer; margin-top:.5rem; margin-right:.5rem; transition:all .2s; font-family:'DM Sans',sans-serif;
+}
+.btn-print:hover { background:var(--teal-dark); }
+
 /* ═══════════════ ADMIN PAGE ═══════════════ */
-.admin-wrap { max-width:1020px; margin:2rem auto; padding:0 1rem 3rem; }
+.admin-wrap { max-width:1060px; margin:2rem auto; padding:0 1rem 3rem; }
 .admin-top { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.4rem; }
 .admin-top h2 { font-family:'Playfair Display',serif; font-size:1.45rem; color:var(--teal-dark); }
 .btn-row { display:flex; gap:.6rem; flex-wrap:wrap; }
+
+.admin-tabs-bar {
+  display:flex; gap:.4rem; margin-bottom:1.4rem; border-bottom:2px solid var(--border); padding-bottom:0;
+}
+.admin-tab-btn {
+  padding:.55rem 1.2rem; border:none; background:none; cursor:pointer;
+  font-family:'DM Sans',sans-serif; font-size:.85rem; font-weight:600;
+  color:var(--gray); border-bottom:2px solid transparent; margin-bottom:-2px;
+  transition:all .2s;
+}
+.admin-tab-btn:hover { color:var(--teal); }
+.admin-tab-btn.active { color:var(--teal-dark); border-bottom-color:var(--teal); }
+
+.admin-section { display:none; }
+.admin-section.active { display:block; }
 
 .stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1.4rem; }
 .stat-card { background:var(--white); border-radius:14px; border:1.5px solid var(--border); padding:1.1rem 1.4rem; }
@@ -282,7 +330,7 @@ textarea { resize:vertical; min-height:68px; }
 .filter-bar input, .filter-bar select {
   padding:.45rem .8rem; border:1.5px solid var(--border); border-radius:8px;
   font-family:'DM Sans',sans-serif; font-size:.83rem; outline:none;
-  transition:border-color .2s;
+  transition:border-color .2s; width:auto;
 }
 .filter-bar input:focus, .filter-bar select:focus { border-color:var(--teal); }
 .filter-search { flex:1; min-width:160px; }
@@ -328,7 +376,7 @@ tbody tr:hover td { background:var(--teal-faint); }
   box-shadow:0 4px 20px rgba(0,0,0,.18);
   transform:translateY(60px); opacity:0;
   transition:all .35s cubic-bezier(.34,1.56,.64,1);
-  max-width:280px;
+  max-width:300px;
 }
 .toast.show { transform:translateY(0); opacity:1; }
 .toast.error { background:var(--red); }
@@ -341,17 +389,85 @@ tbody tr:hover td { background:var(--teal-faint); }
 }
 .offline-banner.show { display:block; }
 
+/* ── Config Panel ── */
+.config-card {
+  background:var(--white); border-radius:16px; border:1.5px solid var(--border);
+  padding:1.8rem 2rem; margin-bottom:1.2rem; box-shadow:var(--shadow-sm);
+}
+.config-card h3 {
+  font-family:'Playfair Display',serif; font-size:1.1rem; color:var(--teal-dark);
+  margin-bottom:1.2rem; padding-bottom:.7rem; border-bottom:1.5px solid var(--border);
+  display:flex; align-items:center; gap:.5rem;
+}
+.config-note {
+  font-size:.76rem; color:var(--gray); margin-top:.3rem; font-style:italic;
+}
+.logo-preview-wrap {
+  display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-top:.5rem;
+}
+.logo-preview {
+  width:70px; height:70px; object-fit:contain;
+  border:1.5px solid var(--border); border-radius:10px; padding:4px;
+  background:var(--white);
+}
+.logo-preview-placeholder {
+  width:70px; height:70px; border:1.5px dashed var(--border);
+  border-radius:10px; display:flex; align-items:center; justify-content:center;
+  font-size:.65rem; color:var(--gray); text-align:center; padding:4px;
+}
+.save-config-btn {
+  background:var(--teal); color:white; border:none; border-radius:10px;
+  padding:.7rem 2rem; font-family:'DM Sans',sans-serif; font-size:.9rem; font-weight:700;
+  cursor:pointer; transition:all .2s; margin-top:.5rem;
+  display:flex; align-items:center; gap:.5rem;
+}
+.save-config-btn:hover { background:var(--teal-dark); }
+.quota-date-preview {
+  background:var(--teal-faint); border:1.5px solid var(--teal-light);
+  border-radius:10px; padding:.75rem 1rem; margin-top:.75rem;
+  font-size:.82rem; color:var(--teal-dark);
+}
+.quota-date-preview strong { display:block; font-size:.95rem; margin-bottom:.2rem; }
+
+/* ── Print styles ── */
+@media print {
+  body { background:white; }
+  nav, .nav-tabs, .btn-back, .btn-print, .offline-banner { display:none !important; }
+  .success-card { border:none; padding:0; }
+  .print-header { display:block !important; }
+}
+.print-header { display:none; }
+
+/* ── Date count chips in admin ── */
+.date-stat-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:.8rem; margin-bottom:1.4rem;
+}
+.date-stat-chip {
+  background:var(--white); border:1.5px solid var(--border); border-radius:12px;
+  padding:.8rem 1rem; text-align:center;
+}
+.date-stat-chip .dsc-date { font-size:.72rem; color:var(--gray); font-weight:600; }
+.date-stat-chip .dsc-num  { font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--teal); font-weight:700; }
+.date-stat-chip .dsc-bar  {
+  height:5px; background:var(--teal-light); border-radius:99px; margin-top:.4rem; overflow:hidden;
+}
+.date-stat-chip .dsc-fill { height:100%; background:var(--teal); border-radius:99px; transition:width .4s; }
+.date-stat-chip.full-date { border-color:#fca5a5; background:#fef2f2; }
+.date-stat-chip.full-date .dsc-num { color:var(--red); }
+
 @media(max-width:600px){
   .hero-card { padding:1.5rem 1.3rem 0; }
   .hero-card::after { display:none; }
   .hero-divider { margin:1.1rem -1.3rem 0; }
   .form-card { padding:1.4rem 1.2rem; }
-  .row2 { grid-template-columns:1fr; }
+  .row2, .row3 { grid-template-columns:1fr; }
   .stats-grid { grid-template-columns:1fr 1fr; }
-  nav { padding:0 1rem; }
+  nav { padding:0 1rem; height:auto; min-height:64px; flex-wrap:wrap; gap:.5rem; padding:.6rem 1rem; }
+  .nav-tabs { width:100%; justify-content:flex-end; }
   .nav-name { font-size:.88rem; }
   .admin-wrap { padding:0 .75rem; }
   .date-chip .dc-num { font-size:.95rem; }
+  .config-card { padding:1.2rem 1rem; }
 }
 </style>
 </head>
@@ -360,13 +476,16 @@ tbody tr:hover td { background:var(--teal-faint); }
 <div class="offline-banner" id="offline-banner">⚠️ Tidak ada koneksi internet. Beberapa fitur mungkin tidak berfungsi.</div>
 
 <!-- NAV -->
-<nav>
-  <div class="nav-logo">
-    <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 4 7 7c0 2 1 3.5 2.5 4.5L9 20h6l-.5-8.5C16 10.5 17 9 17 7c0-3-2-5-5-5zM9 20v1.5C9 22.3 9.7 23 10.5 23h3c.8 0 1.5-.7 1.5-1.5V20H9z"/></svg>
+<nav id="main-nav">
+  <div class="nav-logos" id="nav-logos">
+    <!-- logos injected by JS -->
+    <div class="nav-logo-placeholder" id="nav-logo-default">
+      <svg viewBox="0 0 24 24"><path d="M12 2C9 2 7 4 7 7c0 2 1 3.5 2.5 4.5L9 20h6l-.5-8.5C16 10.5 17 9 17 7c0-3-2-5-5-5zM9 20v1.5C9 22.3 9.7 23 10.5 23h3c.8 0 1.5-.7 1.5-1.5V20H9z"/></svg>
+    </div>
   </div>
   <div>
-    <div class="nav-name">Puskesmas Plamongansari</div>
-    <div class="nav-sub">Program Scaling Gigi Gratis 2026</div>
+    <div class="nav-name" id="nav-name">Puskesmas Plamongansari</div>
+    <div class="nav-sub" id="nav-sub">Program Scaling Gigi Gratis 2026</div>
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showPage('form-page')">Pendaftaran</button>
@@ -386,25 +505,29 @@ tbody tr:hover td { background:var(--teal-faint); }
 
     <!-- Hero -->
     <div class="hero-card">
-      <div class="badge">Program Gratis · Terbatas</div>
-      <h1>Scaling Gigi<br>Tanpa Biaya</h1>
-      <p>Layanan scaling gigi gratis dalam rangka Hari Jadi Kota Semarang ke 479 untuk masyarakat umum. Kuota <strong>3 orang per hari</strong>, daftar sekarang sebelum penuh!</p>
+      <div class="badge" id="hero-badge">Program Gratis · Terbatas</div>
+      <h1 id="hero-judul">Scaling Gigi<br>Tanpa Biaya</h1>
+      <p id="hero-subjudul">Layanan scaling gigi gratis untuk masyarakat umum. Kuota <strong id="hero-kuota">3</strong> orang per hari, daftar sekarang sebelum penuh!</p>
       <div class="period">
         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        13 – 18 April 2026
+        <span id="hero-periode">13 – 18 April 2026</span>
       </div>
       <div class="hero-divider"></div>
     </div>
 
     <!-- Success card -->
     <div class="success-card" id="success-card">
+      <div class="print-header" id="print-header-content"></div>
       <div class="success-ico">
         <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
       </div>
       <h2>Pendaftaran Berhasil!</h2>
-      <p>Harap datang tepat waktu ke Puskesmas Plamongansari sesuai tanggal yang dipilih.</p>
+      <p>Harap datang tepat waktu ke <strong id="success-puskesmas-name">Puskesmas Plamongansari</strong> sesuai tanggal yang dipilih. Simpan bukti ini sebagai tanda pendaftaran.</p>
       <div class="success-detail" id="success-detail"></div>
-      <button class="btn-back" onclick="resetForm()">← Daftar Lagi</button>
+      <div style="display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-top:.75rem">
+        <button class="btn-print" onclick="printBukti()">🖨 Cetak / Simpan PDF</button>
+        <button class="btn-back" onclick="resetForm()">← Daftar Lagi</button>
+      </div>
     </div>
 
     <!-- Main Form -->
@@ -412,9 +535,7 @@ tbody tr:hover td { background:var(--teal-faint); }
 
       <!-- Quota bar -->
       <div class="quota-bar" id="quota-bar">
-        <div class="q-dots" id="q-dots">
-          <div class="q-dot"></div><div class="q-dot"></div><div class="q-dot"></div>
-        </div>
+        <div class="q-dots" id="q-dots"></div>
         <div class="q-text" id="q-text">Pilih tanggal untuk melihat kuota</div>
         <div class="q-full" id="q-full">PENUH</div>
       </div>
@@ -462,9 +583,7 @@ tbody tr:hover td { background:var(--teal-faint); }
         <div class="field">
           <label>Pilihan Rahang yang Discaling <span class="req">*</span></label>
           <div class="rahang-group">
-
             <button type="button" class="rahang-btn" id="rahang-atas" onclick="selectRahang('Atas')">
-              <!-- upper jaw SVG -->
               <svg viewBox="0 0 60 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="5" y="5" width="50" height="18" rx="9" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
                 <rect x="11" y="10" width="7" height="9" rx="2" fill="#0d9488"/>
@@ -476,9 +595,7 @@ tbody tr:hover td { background:var(--teal-faint); }
               </svg>
               <span>Rahang Atas</span>
             </button>
-
             <button type="button" class="rahang-btn" id="rahang-bawah" onclick="selectRahang('Bawah')">
-              <!-- lower jaw SVG -->
               <svg viewBox="0 0 60 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="5" y="17" width="50" height="18" rx="9" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
                 <rect x="11" y="21" width="7" height="9" rx="2" fill="#0d9488"/>
@@ -490,7 +607,6 @@ tbody tr:hover td { background:var(--teal-faint); }
               </svg>
               <span>Rahang Bawah</span>
             </button>
-
           </div>
           <div class="err" id="rahang-err">Pilih rahang yang akan discaling.</div>
         </div>
@@ -513,7 +629,7 @@ tbody tr:hover td { background:var(--teal-faint); }
     <h3>🔒 Area Admin</h3>
     <p>Masukkan password untuk mengakses data pendaftaran.</p>
     <input type="password" id="gate-pass" placeholder="Password" onkeydown="if(event.key==='Enter')checkGate()">
-    <div class="err show" id="gate-err" style="text-align:center;margin-bottom:.75rem;display:none!important"></div>
+    <div class="err" id="gate-err" style="text-align:center;margin-bottom:.75rem"></div>
     <button class="btn btn-primary" onclick="checkGate()">Masuk</button>
   </div>
 
@@ -521,64 +637,168 @@ tbody tr:hover td { background:var(--teal-faint); }
   <div class="admin-wrap" id="admin-content" style="display:none">
     <div class="admin-top">
       <div>
-        <h2>📋 Data Pendaftaran Scaling Gigi</h2>
-        <div style="font-size:.8rem;color:var(--gray);margin-top:.25rem">Puskesmas Plamongansari · 13–18 April 2026</div>
+        <h2>📋 Panel Admin Scaling Gigi</h2>
+        <div style="font-size:.8rem;color:var(--gray);margin-top:.25rem" id="admin-subtitle">Puskesmas Plamongansari</div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-outline" onclick="clearAll()">🗑 Hapus Semua</button>
+        <button class="btn btn-outline" onclick="clearAll()">🗑 Hapus Semua Data</button>
         <button class="btn btn-primary" onclick="exportExcel()">⬇ Export Excel</button>
       </div>
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-num" id="st-total">–</div><div class="stat-lbl">Total Pendaftar</div></div>
-      <div class="stat-card"><div class="stat-num" id="st-today">–</div><div class="stat-lbl">Pendaftar Hari Ini</div></div>
-      <div class="stat-card"><div class="stat-num" id="st-left">–</div><div class="stat-lbl">Sisa Slot Total</div></div>
+    <!-- Admin Tab Bar -->
+    <div class="admin-tabs-bar">
+      <button class="admin-tab-btn active" onclick="switchAdminTab('data')">📊 Data Pendaftar</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('config')">⚙️ Pengaturan</button>
     </div>
 
-    <div class="filter-bar">
-      <label>Filter:</label>
-      <input class="filter-search" type="text" id="f-search" placeholder="Cari nama / NIK / HP…" oninput="renderTable()">
-      <select id="f-date" onchange="renderTable()">
-        <option value="">Semua tanggal</option>
-        <option value="2026-04-13">13 April</option>
-        <option value="2026-04-14">14 April</option>
-        <option value="2026-04-15">15 April</option>
-        <option value="2026-04-16">16 April</option>
-        <option value="2026-04-17">17 April</option>
-        <option value="2026-04-18">18 April</option>
-      </select>
-      <select id="f-rahang" onchange="renderTable()">
-        <option value="">Semua rahang</option>
-        <option value="Atas">Atas</option>
-        <option value="Bawah">Bawah</option>
-      </select>
-      <button class="btn btn-outline" onclick="resetFilter()">Reset</button>
-    </div>
+    <!-- ── TAB: DATA ── -->
+    <div class="admin-section active" id="tab-data">
 
-    <div class="table-card">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Tanggal</th>
-            <th>Nama Lengkap</th>
-            <th>NIK</th>
-            <th>No. HP</th>
-            <th>Rahang</th>
-            <th>Alamat</th>
-            <th>Waktu Daftar</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-      <div class="empty-state" id="empty-state" style="display:none">
-        <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-        <p>Belum ada data pendaftaran.</p>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-num" id="st-total">–</div><div class="stat-lbl">Total Pendaftar</div></div>
+        <div class="stat-card"><div class="stat-num" id="st-today">–</div><div class="stat-lbl">Pendaftar Hari Ini</div></div>
+        <div class="stat-card"><div class="stat-num" id="st-left">–</div><div class="stat-lbl">Sisa Slot Total</div></div>
+      </div>
+
+      <!-- Per-date stats -->
+      <div class="date-stat-grid" id="date-stat-grid"></div>
+
+      <div class="filter-bar">
+        <label>Filter:</label>
+        <input class="filter-search" type="text" id="f-search" placeholder="Cari nama / NIK / HP…" oninput="renderTable()">
+        <select id="f-date" onchange="renderTable()">
+          <option value="">Semua tanggal</option>
+        </select>
+        <select id="f-rahang" onchange="renderTable()">
+          <option value="">Semua rahang</option>
+          <option value="Atas">Atas</option>
+          <option value="Bawah">Bawah</option>
+        </select>
+        <button class="btn btn-outline" onclick="resetFilter()">Reset</button>
+      </div>
+
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tanggal</th>
+              <th>Nama Lengkap</th>
+              <th>NIK</th>
+              <th>No. HP</th>
+              <th>Rahang</th>
+              <th>Alamat</th>
+              <th>Waktu Daftar</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty-state" id="empty-state" style="display:none">
+          <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          <p>Belum ada data pendaftaran.</p>
+        </div>
       </div>
     </div>
-  </div>
+
+    <!-- ── TAB: CONFIG ── -->
+    <div class="admin-section" id="tab-config">
+
+      <!-- Kegiatan -->
+      <div class="config-card">
+        <h3>📝 Informasi Kegiatan</h3>
+        <div class="row2">
+          <div class="field">
+            <label>Nama / Judul Kegiatan</label>
+            <input type="text" id="cfg-judul" placeholder="Scaling Gigi Tanpa Biaya">
+          </div>
+          <div class="field">
+            <label>Nama Puskesmas</label>
+            <input type="text" id="cfg-namaPuskesmas" placeholder="Puskesmas Plamongansari">
+          </div>
+        </div>
+        <div class="field">
+          <label>Sub-judul / Deskripsi Kegiatan</label>
+          <textarea id="cfg-subjudul" rows="2" placeholder="Deskripsi singkat program ini…"></textarea>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Sub-nama Puskesmas (nav)</label>
+            <input type="text" id="cfg-subnamaPuskesmas" placeholder="Program Scaling Gigi Gratis 2026">
+          </div>
+          <div class="field">
+            <label>Teks Periode (tampilan)</label>
+            <input type="text" id="cfg-periodeTeks" placeholder="13 – 18 April 2026">
+            <div class="config-note">Contoh: "13 – 18 April 2026". Hanya tampilan.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tanggal & Kuota -->
+      <div class="config-card">
+        <h3>📅 Tanggal & Kuota</h3>
+        <div class="row3">
+          <div class="field">
+            <label>Tanggal Mulai</label>
+            <input type="date" id="cfg-mulai">
+          </div>
+          <div class="field">
+            <label>Tanggal Selesai</label>
+            <input type="date" id="cfg-selesai">
+          </div>
+          <div class="field">
+            <label>Kuota Per Hari</label>
+            <input type="number" id="cfg-kuota" min="1" max="100" placeholder="3">
+          </div>
+        </div>
+        <div class="quota-date-preview" id="quota-preview">
+          <strong>Preview Range Tanggal</strong>
+          <span id="qp-text">Isi tanggal mulai dan selesai untuk preview.</span>
+        </div>
+      </div>
+
+      <!-- Logo -->
+      <div class="config-card">
+        <h3>🏛 Logo Institusi</h3>
+        <p style="font-size:.82rem;color:var(--gray);margin-bottom:1.2rem">Masukkan URL gambar logo (dari Google Drive, Imgur, atau hosting publik). Pastikan URL bisa diakses publik dan berformat gambar.</p>
+
+        <div class="row3">
+          <div class="field">
+            <label>Logo Kementerian Kesehatan</label>
+            <input type="url" id="cfg-logoKemenkes" placeholder="https://...">
+            <div class="logo-preview-wrap" style="margin-top:.6rem">
+              <div id="prev-kemenkes" class="logo-preview-placeholder">Belum ada logo</div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Logo Puskesmas</label>
+            <input type="url" id="cfg-logoPuskesmas" placeholder="https://...">
+            <div class="logo-preview-wrap" style="margin-top:.6rem">
+              <div id="prev-puskesmas" class="logo-preview-placeholder">Belum ada logo</div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Logo Kota Semarang</label>
+            <input type="url" id="cfg-logoKota" placeholder="https://...">
+            <div class="logo-preview-wrap" style="margin-top:.6rem">
+              <div id="prev-kota" class="logo-preview-placeholder">Belum ada logo</div>
+            </div>
+          </div>
+        </div>
+
+        <p class="config-note" style="margin-top:.5rem">💡 Tips: Upload logo ke <a href="https://imgur.com" target="_blank" style="color:var(--teal)">imgur.com</a> (gratis) lalu copy link gambarnya. Atau pakai Google Drive dengan setting "Siapa saja yang punya link" lalu ubah URL ke format direct image.</p>
+      </div>
+
+      <!-- Save -->
+      <button class="save-config-btn" onclick="saveConfig()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Simpan Semua Pengaturan
+      </button>
+
+    </div><!-- /tab-config -->
+
+  </div><!-- /admin-content -->
 </div>
 
 <!-- XLSX -->
@@ -586,22 +806,35 @@ tbody tr:hover td { background:var(--teal-faint); }
 
 <script>
 // ══════════════════════════════════
-//  CONSTANTS
+//  CONSTANTS & STATE
 // ══════════════════════════════════
-const QUOTA    = 3;
-const PASS     = 'puskesmas2026';
-const PROGRAM_DATES = ['2026-04-13','2026-04-14','2026-04-15','2026-04-16','2026-04-17','2026-04-18'];
-const DAYS_ID  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-const MONTHS_ID= ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const PASS      = 'puskesmas2026';
+const DAYS_ID   = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const MONTHS_FULL=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
-// State
-let selectedDate  = null;
-let selectedRahang= null;
-let adminAuth     = false;
-window._allData   = [];
+let selectedDate   = null;
+let selectedRahang = null;
+let adminAuth      = false;
+window._allData    = [];
 
-// ── helpers ──
+// ══════════════════════════════════
+//  DATE HELPERS
+// ══════════════════════════════════
+function getProgramDates() {
+  const cfg = window._config;
+  if (!cfg.tanggalMulai || !cfg.tanggalSelesai) return [];
+  const dates = [];
+  const cur   = new Date(cfg.tanggalMulai + 'T00:00:00');
+  const end   = new Date(cfg.tanggalSelesai + 'T00:00:00');
+  while (cur <= end) {
+    dates.push(cur.toISOString().split('T')[0]);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+function getQuota() { return parseInt(window._config?.kuotaPerHari) || 3; }
+
 function fmtDateID(str) {
   if (!str) return '-';
   const [y,m,d] = str.split('-');
@@ -611,11 +844,69 @@ function fmtDateShort(str) {
   const d = new Date(str+'T00:00:00');
   return `${d.getDate()} ${MONTHS_ID[d.getMonth()]}`;
 }
-function dayName(str) {
-  return DAYS_ID[new Date(str+'T00:00:00').getDay()];
+function dayName(str) { return DAYS_ID[new Date(str+'T00:00:00').getDay()]; }
+function countDate(date) { return window._allData.filter(r => r.tanggal === date).length; }
+
+// ══════════════════════════════════
+//  APPLY CONFIG TO UI
+// ══════════════════════════════════
+function applyConfig() {
+  const cfg = window._config;
+
+  // Nav
+  const nameEl = document.getElementById('nav-name');
+  const subEl  = document.getElementById('nav-sub');
+  if (nameEl) nameEl.textContent = cfg.namaPuskesmas || 'Puskesmas Plamongansari';
+  if (subEl)  subEl.textContent  = cfg.subnamaPuskesmas || 'Program Scaling Gigi Gratis';
+
+  // Logos in nav
+  buildNavLogos();
+
+  // Hero
+  const judulEl = document.getElementById('hero-judul');
+  if (judulEl && cfg.judulKegiatan) judulEl.innerHTML = cfg.judulKegiatan.replace(' ', '<br>');
+  const subjudulEl = document.getElementById('hero-subjudul');
+  if (subjudulEl && cfg.subjudulKegiatan)
+    subjudulEl.innerHTML = cfg.subjudulKegiatan + ` Kuota <strong id="hero-kuota">${getQuota()}</strong> orang per hari.`;
+  else if (document.getElementById('hero-kuota'))
+    document.getElementById('hero-kuota').textContent = getQuota();
+
+  const periodeEl = document.getElementById('hero-periode');
+  if (periodeEl) periodeEl.textContent = cfg.periodeTeks || '';
+
+  // Success puskesmas name
+  const spn = document.getElementById('success-puskesmas-name');
+  if (spn) spn.textContent = cfg.namaPuskesmas || 'Puskesmas Plamongansari';
+
+  // Admin subtitle
+  const as = document.getElementById('admin-subtitle');
+  if (as) as.textContent = (cfg.namaPuskesmas || 'Puskesmas') + ' · ' + (cfg.periodeTeks || '');
 }
-function countDate(date) {
-  return window._allData.filter(r => r.tanggal === date).length;
+
+function buildNavLogos() {
+  const cfg  = window._config;
+  const wrap = document.getElementById('nav-logos');
+  if (!wrap) return;
+
+  const logos = [
+    { url: cfg.logoKemenkes,  alt: 'Kemenkes' },
+    { url: cfg.logoPuskesmas, alt: 'Puskesmas' },
+    { url: cfg.logoKota,      alt: 'Kota Semarang' }
+  ].filter(l => l.url);
+
+  if (logos.length === 0) {
+    wrap.innerHTML = `<div class="nav-logo-placeholder" id="nav-logo-default">
+      <svg viewBox="0 0 24 24" style="fill:white"><path d="M12 2C9 2 7 4 7 7c0 2 1 3.5 2.5 4.5L9 20h6l-.5-8.5C16 10.5 17 9 17 7c0-3-2-5-5-5zM9 20v1.5C9 22.3 9.7 23 10.5 23h3c.8 0 1.5-.7 1.5-1.5V20H9z"/></svg>
+    </div>`;
+    return;
+  }
+
+  let html = '';
+  logos.forEach((l, i) => {
+    if (i > 0) html += '<div class="nav-divider-v"></div>';
+    html += `<img class="nav-logo-img" src="${l.url}" alt="${l.alt}" onerror="this.style.display='none'">`;
+  });
+  wrap.innerHTML = html;
 }
 
 // ══════════════════════════════════
@@ -627,21 +918,37 @@ function showPage(id) {
   document.querySelectorAll('.nav-tab').forEach((t,i) =>
     t.classList.toggle('active', ['form-page','admin-page'][i] === id)
   );
-  if (id === 'admin-page') renderAdmin();
+  if (id === 'admin-page') {
+    if (adminAuth) renderAdmin();
+  }
+}
+
+function switchAdminTab(name) {
+  document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes("'"+name+"'")));
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'config') loadConfigForm();
 }
 
 // ══════════════════════════════════
 //  DATES
 // ══════════════════════════════════
 function renderDates() {
-  const row = document.getElementById('date-row');
+  const row   = document.getElementById('date-row');
+  if (!row) return;
+  const dates = getProgramDates();
   row.innerHTML = '';
-  PROGRAM_DATES.forEach(d => {
-    const count = countDate(d);
-    const isFull = count >= QUOTA;
+  if (!dates.length) {
+    row.innerHTML = '<p style="color:var(--gray);font-size:.85rem">Tanggal program belum dikonfigurasi oleh admin.</p>';
+    return;
+  }
+  dates.forEach(d => {
+    const count  = countDate(d);
+    const quota  = getQuota();
+    const isFull = count >= quota;
     const isSel  = d === selectedDate;
     let cls = 'date-chip ' + (isFull ? 'full' : 'available') + (isSel ? ' selected' : '');
-    const slot = isFull ? 'PENUH' : `${QUOTA - count} slot`;
+    const slot = isFull ? 'PENUH' : `${quota - count} slot`;
     row.innerHTML += `
       <div class="${cls}" onclick="pickDate('${d}',${isFull})">
         <div class="dc-day">${dayName(d)}</div>
@@ -660,17 +967,20 @@ function pickDate(d, isFull) {
 }
 
 function updateQuotaBar() {
+  const quota = getQuota();
   const count = selectedDate ? countDate(selectedDate) : 0;
   const dots  = document.getElementById('q-dots');
   const txt   = document.getElementById('q-text');
   const badge = document.getElementById('q-full');
-  dots.innerHTML = Array(QUOTA).fill(0).map((_,i) =>
+  // max 10 dots for display
+  const displayQuota = Math.min(quota, 10);
+  dots.innerHTML = Array(displayQuota).fill(0).map((_,i) =>
     `<div class="q-dot ${i < count ? 'filled' : ''}"></div>`).join('');
   if (!selectedDate) { txt.innerHTML = 'Pilih tanggal untuk melihat kuota'; badge.classList.remove('show'); return; }
-  const sisa = QUOTA - count;
+  const sisa = quota - count;
   txt.innerHTML = `<b>${sisa} slot tersisa</b> untuk ${fmtDateShort(selectedDate)}`;
-  badge.classList.toggle('show', sisa === 0);
-  document.getElementById('btn-submit').disabled = sisa === 0;
+  badge.classList.toggle('show', sisa <= 0);
+  document.getElementById('btn-submit').disabled = sisa <= 0;
 }
 
 // ══════════════════════════════════
@@ -700,10 +1010,11 @@ function validate() {
 
 async function submitForm() {
   if (!validate()) return;
-  if (!window._push) { showToast('Koneksi ke database belum siap. Periksa konfigurasi Firebase.', true); return; }
+  if (!window._push) { showToast('Koneksi ke database belum siap.', true); return; }
 
+  const quota = getQuota();
   const count = countDate(selectedDate);
-  if (count >= QUOTA) { showToast('Kuota penuh! Silakan pilih tanggal lain.', true); renderDates(); return; }
+  if (count >= quota) { showToast('Kuota penuh! Silakan pilih tanggal lain.', true); renderDates(); return; }
 
   const nik = document.getElementById('f-nik').value.trim();
   if (window._allData.find(r => r.nik === nik)) {
@@ -724,14 +1035,30 @@ async function submitForm() {
   try {
     await window._push(window._REG_REF, reg);
     setLoading(false);
-    const antrian = window._allData.filter(r => r.tanggal === selectedDate).length;
+    const antrian = window._allData.filter(r => r.tanggal === selectedDate).length + 1;
+    const cfg     = window._config;
+
+    document.getElementById('print-header-content').innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:12px">
+        ${cfg.logoKemenkes  ? `<img src="${cfg.logoKemenkes}"  height="50" style="object-fit:contain">` : ''}
+        ${cfg.logoPuskesmas ? `<img src="${cfg.logoPuskesmas}" height="50" style="object-fit:contain">` : ''}
+        ${cfg.logoKota      ? `<img src="${cfg.logoKota}"      height="50" style="object-fit:contain">` : ''}
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#0f766e;text-align:center">${cfg.namaPuskesmas || 'Puskesmas Plamongansari'}</div>
+      <div style="font-size:11px;color:#6b7280;text-align:center;margin-bottom:6px">${cfg.judulKegiatan || 'Scaling Gigi'} · ${cfg.periodeTeks || ''}</div>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin-bottom:12px">
+    `;
+
     document.getElementById('main-form').style.display = 'none';
     document.getElementById('success-detail').innerHTML = `
       <div class="sd-row"><span>Nama</span><strong>${reg.nama}</strong></div>
+      <div class="sd-row"><span>NIK</span><strong>${reg.nik}</strong></div>
       <div class="sd-row"><span>Tanggal Kunjungan</span><strong>${fmtDateID(reg.tanggal)}</strong></div>
       <div class="sd-row"><span>Rahang</span><strong>Rahang ${reg.rahang}</strong></div>
-      <div class="sd-row"><span>No. Antrian</span><strong>${antrian}</strong></div>
+      <div class="sd-row"><span>No. Antrian</span><strong>#${antrian}</strong></div>
       <div class="sd-row"><span>No. HP</span><strong>${reg.hp}</strong></div>
+      <div class="sd-row"><span>Alamat</span><strong>${reg.alamat}</strong></div>
+      <div class="sd-row"><span>Waktu Daftar</span><strong>${reg.createdAt}</strong></div>
     `;
     document.getElementById('success-card').classList.add('show');
     showToast('Pendaftaran berhasil disimpan ✓');
@@ -752,43 +1079,79 @@ function resetForm() {
   renderDates();
 }
 
+function printBukti() { window.print(); }
+
 // ══════════════════════════════════
-//  ADMIN
+//  ADMIN GATE
 // ══════════════════════════════════
 function checkGate() {
   const err = document.getElementById('gate-err');
   if (document.getElementById('gate-pass').value === PASS) {
     adminAuth = true;
-    document.getElementById('admin-gate').style.display  = 'none';
+    document.getElementById('admin-gate').style.display    = 'none';
     document.getElementById('admin-content').style.display = 'block';
     renderAdmin();
   } else {
-    err.textContent = 'Password salah.'; err.style.display = 'block';
+    err.textContent = 'Password salah.'; err.classList.add('show');
   }
 }
 
+// ══════════════════════════════════
+//  ADMIN RENDER
+// ══════════════════════════════════
 function renderAdmin() {
   if (!adminAuth) return;
-  updateStats(); renderTable();
+  updateStats(); renderTable(); renderDateStatGrid();
+  // Rebuild filter date options
+  const sel = document.getElementById('f-date');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Semua tanggal</option>';
+  getProgramDates().forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d; opt.textContent = fmtDateID(d);
+    if (d === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function renderDateStatGrid() {
+  const grid  = document.getElementById('date-stat-grid');
+  if (!grid) return;
+  const dates = getProgramDates();
+  const quota = getQuota();
+  grid.innerHTML = '';
+  dates.forEach(d => {
+    const cnt  = countDate(d);
+    const pct  = Math.min(100, Math.round(cnt/quota*100));
+    const full = cnt >= quota;
+    grid.innerHTML += `
+      <div class="date-stat-chip ${full?'full-date':''}">
+        <div class="dsc-date">${dayName(d)}, ${fmtDateShort(d)}</div>
+        <div class="dsc-num">${cnt}<span style="font-size:.9rem;color:var(--gray)">/${quota}</span></div>
+        <div class="dsc-bar"><div class="dsc-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  });
 }
 
 function updateStats() {
   const data  = window._allData;
   const today = new Date().toISOString().split('T')[0];
-  const totalSlots = QUOTA * PROGRAM_DATES.length;
+  const dates = getProgramDates();
+  const quota = getQuota();
+  const totalSlots = quota * dates.length;
   document.getElementById('st-total').textContent = data.length;
   document.getElementById('st-today').textContent = data.filter(r => r.tanggal === today).length;
   document.getElementById('st-left').textContent  = Math.max(0, totalSlots - data.length);
 }
 
 function renderTable() {
-  const data   = window._allData;
-  const search = document.getElementById('f-search').value.toLowerCase();
-  const fdate  = document.getElementById('f-date').value;
-  const frahang= document.getElementById('f-rahang').value;
+  const data    = window._allData;
+  const search  = document.getElementById('f-search').value.toLowerCase();
+  const fdate   = document.getElementById('f-date').value;
+  const frahang = document.getElementById('f-rahang').value;
 
   let rows = data.filter(r =>
-    (!search || r.nama.toLowerCase().includes(search) || r.nik?.includes(search) || r.hp?.includes(search)) &&
+    (!search || r.nama.toLowerCase().includes(search) || (r.nik||'').includes(search) || (r.hp||'').includes(search)) &&
     (!fdate   || r.tanggal === fdate) &&
     (!frahang || r.rahang  === frahang)
   ).sort((a,b) => a.tanggal.localeCompare(b.tanggal));
@@ -840,43 +1203,147 @@ function resetFilter() {
 function exportExcel() {
   const data = window._allData;
   if (!data.length) { showToast('Tidak ada data untuk diekspor.'); return; }
+  const cfg = window._config;
   const rows = data
     .sort((a,b) => a.tanggal.localeCompare(b.tanggal))
     .map((r,i) => ({
-      'No'              : i+1,
+      'No'               : i+1,
       'Tanggal Kunjungan': fmtDateID(r.tanggal),
-      'Nama Lengkap'    : r.nama,
-      'NIK'             : r.nik,
-      'No. HP'          : r.hp,
-      'Rahang'          : r.rahang,
-      'Alamat'          : r.alamat,
-      'Waktu Daftar'    : r.createdAt
+      'Nama Lengkap'     : r.nama,
+      'NIK'              : r.nik,
+      'No. HP'           : r.hp,
+      'Rahang'           : r.rahang,
+      'Alamat'           : r.alamat,
+      'Waktu Daftar'     : r.createdAt
     }));
   const ws = XLSX.utils.json_to_sheet(rows);
   ws['!cols'] = [4,22,26,18,16,10,35,22].map(w=>({wch:w}));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Pendaftaran');
-  XLSX.writeFile(wb, `Scaling_Gigi_Plamongansari_${new Date().toISOString().split('T')[0]}.xlsx`);
+  const namaFile = (cfg.judulKegiatan||'Scaling_Gigi').replace(/\s+/g,'_');
+  XLSX.writeFile(wb, `${namaFile}_${new Date().toISOString().split('T')[0]}.xlsx`);
   showToast('File Excel berhasil diunduh!');
+}
+
+// ══════════════════════════════════
+//  CONFIG PANEL
+// ══════════════════════════════════
+function loadConfigForm() {
+  const cfg = window._config;
+  document.getElementById('cfg-judul').value           = cfg.judulKegiatan   || '';
+  document.getElementById('cfg-subjudul').value        = cfg.subjudulKegiatan || '';
+  document.getElementById('cfg-periodeTeks').value     = cfg.periodeTeks     || '';
+  document.getElementById('cfg-mulai').value           = cfg.tanggalMulai    || '';
+  document.getElementById('cfg-selesai').value         = cfg.tanggalSelesai  || '';
+  document.getElementById('cfg-kuota').value           = cfg.kuotaPerHari    || 3;
+  document.getElementById('cfg-logoKemenkes').value    = cfg.logoKemenkes    || '';
+  document.getElementById('cfg-logoPuskesmas').value   = cfg.logoPuskesmas   || '';
+  document.getElementById('cfg-logoKota').value        = cfg.logoKota        || '';
+  document.getElementById('cfg-namaPuskesmas').value   = cfg.namaPuskesmas   || '';
+  document.getElementById('cfg-subnamaPuskesmas').value= cfg.subnamaPuskesmas|| '';
+
+  refreshLogoPreviews();
+  updateQuotaPreview();
+
+  // Live preview hooks
+  ['cfg-mulai','cfg-selesai','cfg-kuota'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateQuotaPreview));
+  ['cfg-logoKemenkes','cfg-logoPuskesmas','cfg-logoKota'].forEach(id =>
+    document.getElementById(id).addEventListener('change', refreshLogoPreviews));
+}
+
+function updateQuotaPreview() {
+  const mulai   = document.getElementById('cfg-mulai').value;
+  const selesai = document.getElementById('cfg-selesai').value;
+  const kuota   = parseInt(document.getElementById('cfg-kuota').value) || 0;
+  const el      = document.getElementById('qp-text');
+  if (!mulai || !selesai) { el.textContent = 'Isi tanggal mulai dan selesai untuk preview.'; return; }
+  const cur = new Date(mulai+'T00:00:00');
+  const end = new Date(selesai+'T00:00:00');
+  if (cur > end) { el.textContent = '⚠️ Tanggal mulai harus sebelum tanggal selesai.'; return; }
+  let days = 0, cur2 = new Date(cur);
+  while (cur2 <= end) { days++; cur2.setDate(cur2.getDate()+1); }
+  el.innerHTML = `${days} hari · ${fmtDateID(mulai)} s.d. ${fmtDateID(selesai)} · Total slot: <b>${days * kuota}</b>`;
+}
+
+function refreshLogoPreviews() {
+  const pairs = [
+    ['cfg-logoKemenkes',  'prev-kemenkes'],
+    ['cfg-logoPuskesmas', 'prev-puskesmas'],
+    ['cfg-logoKota',      'prev-kota']
+  ];
+  pairs.forEach(([inp, prev]) => {
+    const url = document.getElementById(inp).value.trim();
+    const el  = document.getElementById(prev);
+    if (url) {
+      el.outerHTML = `<img id="${prev}" class="logo-preview" src="${url}" alt="Logo" onerror="this.outerHTML='<div id=\\'${prev}\\' class=\\'logo-preview-placeholder\\'>URL tidak valid</div>'">`;
+    } else {
+      if (el.tagName === 'IMG') el.outerHTML = `<div id="${prev}" class="logo-preview-placeholder">Belum ada logo</div>`;
+    }
+  });
+}
+
+async function saveConfig() {
+  const newCfg = {
+    judulKegiatan    : document.getElementById('cfg-judul').value.trim(),
+    subjudulKegiatan : document.getElementById('cfg-subjudul').value.trim(),
+    periodeTeks      : document.getElementById('cfg-periodeTeks').value.trim(),
+    tanggalMulai     : document.getElementById('cfg-mulai').value,
+    tanggalSelesai   : document.getElementById('cfg-selesai').value,
+    kuotaPerHari     : parseInt(document.getElementById('cfg-kuota').value) || 3,
+    logoKemenkes     : document.getElementById('cfg-logoKemenkes').value.trim(),
+    logoPuskesmas    : document.getElementById('cfg-logoPuskesmas').value.trim(),
+    logoKota         : document.getElementById('cfg-logoKota').value.trim(),
+    namaPuskesmas    : document.getElementById('cfg-namaPuskesmas').value.trim(),
+    subnamaPuskesmas : document.getElementById('cfg-subnamaPuskesmas').value.trim()
+  };
+
+  if (!newCfg.tanggalMulai || !newCfg.tanggalSelesai) {
+    showToast('Tanggal mulai dan selesai wajib diisi!', true); return;
+  }
+  if (newCfg.tanggalMulai > newCfg.tanggalSelesai) {
+    showToast('Tanggal mulai harus sebelum tanggal selesai!', true); return;
+  }
+
+  setLoading(true);
+  try {
+    await window._set(window._CONFIG_REF, newCfg);
+    setLoading(false);
+    showToast('Pengaturan berhasil disimpan ✓');
+  } catch(e) {
+    setLoading(false);
+    showToast('Gagal menyimpan pengaturan.', true);
+    console.error(e);
+  }
 }
 
 // ══════════════════════════════════
 //  UTILS
 // ══════════════════════════════════
-function setLoading(v) { document.getElementById('loading').style.display = v ? 'flex' : 'none'; }
+function setLoading(v) {
+  document.getElementById('loading').classList.toggle('show', v);
+}
 
 function showToast(msg, isErr=false) {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = 'toast' + (isErr ? ' error' : '');
+  t.className   = 'toast' + (isErr ? ' error' : '');
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  setTimeout(() => t.classList.remove('show'), 3500);
 }
 
 window.addEventListener('offline', () => document.getElementById('offline-banner').classList.add('show'));
 window.addEventListener('online',  () => document.getElementById('offline-banner').classList.remove('show'));
 
-// Called by Firebase listener
+// ══════════════════════════════════
+//  CALLBACKS from Firebase
+// ══════════════════════════════════
+window.onConfigLoaded = function() {
+  applyConfig();
+  renderDates();
+  if (adminAuth) renderAdmin();
+};
+
 window.onDataLoaded = function() {
   renderDates();
   if (adminAuth) renderAdmin();
