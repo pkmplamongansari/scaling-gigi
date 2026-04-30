@@ -234,6 +234,13 @@ textarea { resize:vertical; min-height:68px; }
 .date-chip.full { background:#fef2f2; border-color:#fca5a5; cursor:not-allowed; }
 .date-chip.full .dc-num { color:#9ca3af; }
 .date-chip.full .dc-slot { color:var(--red); }
+.date-chip.sunday {
+  background: #f9fafb; border-color: #e5e7eb;
+  cursor: not-allowed; opacity: .6;
+}
+.date-chip.sunday .dc-day { color: #9ca3af; }
+.date-chip.sunday .dc-num { color: #9ca3af; }
+.date-chip.sunday .dc-slot { color: #9ca3af; font-style: italic; }
 
 .err { color:var(--red); font-size:.74rem; margin-top:.3rem; display:none; }
 .err.show { display:block; }
@@ -833,11 +840,16 @@ function dateToStr(d) {
   return `${y}-${m}-${dd}`;
 }
 
-function getProgramDates() {
+// Cek apakah tanggal string 'YYYY-MM-DD' adalah hari Minggu (day === 0)
+function isSunday(str) {
+  return new Date(str + 'T12:00:00').getDay() === 0;
+}
+
+// Semua tanggal dalam range termasuk Minggu — untuk tampilan chip
+function getAllProgramDates() {
   const cfg = window._config;
   if (!cfg.tanggalMulai || !cfg.tanggalSelesai) return [];
   const dates = [];
-  // Pakai T12:00:00 agar aman dari DST shift di semua timezone
   const cur = new Date(cfg.tanggalMulai + 'T12:00:00');
   const end = new Date(cfg.tanggalSelesai + 'T12:00:00');
   while (cur <= end) {
@@ -845,6 +857,11 @@ function getProgramDates() {
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
+}
+
+// Tanggal aktif (tanpa Minggu) — untuk kuota, statistik, filter
+function getProgramDates() {
+  return getAllProgramDates().filter(d => !isSunday(d));
 }
 function getQuota() { return parseInt(window._config?.kuotaPerHari) || 3; }
 
@@ -958,15 +975,28 @@ function renderDates() {
     row.innerHTML = '<p style="color:var(--gray);font-size:.85rem">Tanggal program belum dikonfigurasi oleh admin.</p>';
     return;
   }
-  dates.forEach(d => {
+  getAllProgramDates().forEach(d => {
+    const sunday = isSunday(d);
     const count  = countDate(d);
     const quota  = getQuota();
     const isFull = count >= quota;
     const isSel  = d === selectedDate;
-    let cls = 'date-chip ' + (isFull ? 'full' : 'available') + (isSel ? ' selected' : '');
-    const slot = isFull ? 'PENUH' : `${quota - count} slot`;
+    let cls, slot, onclick;
+    if (sunday) {
+      cls    = 'date-chip sunday';
+      slot   = 'Libur';
+      onclick = '';
+    } else if (isFull) {
+      cls    = 'date-chip full' + (isSel ? ' selected' : '');
+      slot   = 'PENUH';
+      onclick = `onclick="pickDate('${d}',true)"`;
+    } else {
+      cls    = 'date-chip available' + (isSel ? ' selected' : '');
+      slot   = `${quota - count} slot`;
+      onclick = `onclick="pickDate('${d}',false)"`;
+    }
     row.innerHTML += `
-      <div class="${cls}" onclick="pickDate('${d}',${isFull})">
+      <div class="${cls}" ${onclick}>
         <div class="dc-day">${dayName(d)}</div>
         <div class="dc-num">${parseInt(d.split('-')[2])}</div>
         <div class="dc-slot">${slot}</div>
@@ -976,6 +1006,7 @@ function renderDates() {
 }
 
 function pickDate(d, isFull) {
+  if (isSunday(d)) { showToast('Hari Minggu libur, tidak ada pelayanan.', true); return; }
   if (isFull) { showToast('Kuota tanggal ini sudah penuh. Pilih tanggal lain.', true); return; }
   selectedDate = d;
   document.getElementById('date-err').classList.remove('show');
@@ -1151,8 +1182,9 @@ function renderDateStatGrid() {
 
 function updateStats() {
   const data  = window._allData;
-  const today = new Date().toISOString().split('T')[0];
-  const dates = getProgramDates();
+  // Gunakan dateToStr(new Date()) agar timezone-safe
+  const today = dateToStr(new Date());
+  const dates = getProgramDates(); // sudah exclude Minggu
   const quota = getQuota();
   const totalSlots = quota * dates.length;
   document.getElementById('st-total').textContent = data.length;
