@@ -215,7 +215,11 @@ textarea { resize:vertical; min-height:68px; }
 .rahang-btn.selected span { color:var(--teal-dark); }
 
 /* date grid */
-.date-row { display:flex; gap:.5rem; flex-wrap:wrap; }
+.date-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: .5rem;
+}
 .date-chip {
   flex:1; min-width:65px; border:1.5px solid var(--border); border-radius:12px;
   padding:.6rem .4rem; text-align:center; cursor:pointer;
@@ -821,14 +825,23 @@ window._allData    = [];
 // ══════════════════════════════════
 //  DATE HELPERS
 // ══════════════════════════════════
+// Format Date object → 'YYYY-MM-DD' tanpa konversi timezone (pakai local time)
+function dateToStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 function getProgramDates() {
   const cfg = window._config;
   if (!cfg.tanggalMulai || !cfg.tanggalSelesai) return [];
   const dates = [];
-  const cur   = new Date(cfg.tanggalMulai + 'T00:00:00');
-  const end   = new Date(cfg.tanggalSelesai + 'T00:00:00');
+  // Pakai T12:00:00 agar aman dari DST shift di semua timezone
+  const cur = new Date(cfg.tanggalMulai + 'T12:00:00');
+  const end = new Date(cfg.tanggalSelesai + 'T12:00:00');
   while (cur <= end) {
-    dates.push(cur.toISOString().split('T')[0]);
+    dates.push(dateToStr(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
@@ -841,10 +854,13 @@ function fmtDateID(str) {
   return `${parseInt(d)} ${MONTHS_FULL[parseInt(m)-1]} ${y}`;
 }
 function fmtDateShort(str) {
-  const d = new Date(str+'T00:00:00');
-  return `${d.getDate()} ${MONTHS_ID[d.getMonth()]}`;
+  const [,m,d] = str.split('-');
+  return `${parseInt(d)} ${MONTHS_ID[parseInt(m)-1]}`;
 }
-function dayName(str) { return DAYS_ID[new Date(str+'T00:00:00').getDay()]; }
+function dayName(str) {
+  // Pakai T12:00:00 untuk hindari UTC shift
+  return DAYS_ID[new Date(str + 'T12:00:00').getDay()];
+}
 function countDate(date) { return window._allData.filter(r => r.tanggal === date).length; }
 
 // ══════════════════════════════════
@@ -1258,11 +1274,12 @@ function updateQuotaPreview() {
   const kuota   = parseInt(document.getElementById('cfg-kuota').value) || 0;
   const el      = document.getElementById('qp-text');
   if (!mulai || !selesai) { el.textContent = 'Isi tanggal mulai dan selesai untuk preview.'; return; }
-  const cur = new Date(mulai+'T00:00:00');
-  const end = new Date(selesai+'T00:00:00');
+  // Pakai T12:00:00 agar aman dari timezone shift (UTC+7 WIB)
+  const cur = new Date(mulai + 'T12:00:00');
+  const end = new Date(selesai + 'T12:00:00');
   if (cur > end) { el.textContent = '⚠️ Tanggal mulai harus sebelum tanggal selesai.'; return; }
   let days = 0, cur2 = new Date(cur);
-  while (cur2 <= end) { days++; cur2.setDate(cur2.getDate()+1); }
+  while (cur2 <= end) { days++; cur2.setDate(cur2.getDate() + 1); }
   el.innerHTML = `${days} hari · ${fmtDateID(mulai)} s.d. ${fmtDateID(selesai)} · Total slot: <b>${days * kuota}</b>`;
 }
 
